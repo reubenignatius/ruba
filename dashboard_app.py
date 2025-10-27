@@ -6,7 +6,9 @@ from streamlit_plotly_events import plotly_events # New library for better event
 # --- Configuration and Data Loading ---
 
 # 1. Update the file path and sheet name based on your input
-FILE_PATH = 'C:/Users/REUBEN/Documents/Dummy Data.xlsx'
+# IMPORTANT: FOR CLOUD DEPLOYMENT, THE DATA FILE MUST BE UPLOADED ALONGSIDE THIS SCRIPT.
+# Please rename your Excel file to 'sales_data.xlsx' and place it in the same directory.
+FILE_PATH = './sales_data.xlsx' # <<<--- CORRECT RELATIVE PATH FOR CLOUD DEPLOYMENT
 SHEET_NAME = 'Sh1' # Check spelling and capitalization of this sheet name in Excel
 
 # --- SESSION STATE INITIALIZATION ---
@@ -25,13 +27,13 @@ def load_data(file_path, sheet_name):
         df = pd.read_excel(file_path, sheet_name=sheet_name, engine='openpyxl')
         return df
     except FileNotFoundError:
-        st.error(f"Error: Excel file not found at path: {file_path}")
+        st.error(f"Error: Excel file not found at path: {file_path}. Please ensure 'sales_data.xlsx' is in the same directory as the script.")
         return pd.DataFrame()
     except KeyError:
         # --- IMPROVED ERROR HANDLING FOR SHEET NAME ---
         try:
             xlsx = pd.ExcelFile(file_path, engine='openpyxl')
-            available_sheets = ", ".join([f"**'{s}'**" for s in xlsx.sheet_names])
+            available_sheets = ", ".join([f"**'{s}'" for s in xlsx.sheet_names])
             st.error(
                 f"🚨 **Sheet Not Found Error**:\n\n"
                 f"The worksheet named **'{sheet_name}'** was not found in the Excel file. "
@@ -104,34 +106,44 @@ else:
     )
     
 # 3. Handle remaining filters using ONLY multiselect
-selected_suppliers = st.sidebar.multiselect(
-    'Select Supplier:',
-    options=df['Supplier'].unique(),
-    default=df['Supplier'].unique().tolist()
-)
+if 'Supplier' in df.columns:
+    selected_suppliers = st.sidebar.multiselect(
+        'Select Supplier:',
+        options=df['Supplier'].unique(),
+        default=df['Supplier'].unique().tolist()
+    )
+else:
+    selected_suppliers = []
 
-selected_items = st.sidebar.multiselect(
-    'Select Item:',
-    options=df['Item'].unique(),
-    default=df['Item'].unique().tolist()
-)
+if 'Item' in df.columns:
+    selected_items = st.sidebar.multiselect(
+        'Select Item:',
+        options=df['Item'].unique(),
+        default=df['Item'].unique().tolist()
+    )
+else:
+    selected_items = []
 
-selected_months = st.sidebar.multiselect(
-    'Select Month:',
-    options=df['Month'].unique(),
-    default=df['Month'].unique().tolist()
-)
+if 'Month' in df.columns:
+    selected_months = st.sidebar.multiselect(
+        'Select Month:',
+        options=df['Month'].unique(),
+        default=df['Month'].unique().tolist()
+    )
+else:
+    selected_months = []
+
 
 # 4. Apply all collected filters to the filtered DataFrame
 if selected_regions:
     df_filtered = df_filtered[df_filtered['Region'].isin(selected_regions)]
 if selected_categories:
     df_filtered = df_filtered[df_filtered['Category'].isin(selected_categories)]
-if selected_suppliers:
+if selected_suppliers and 'Supplier' in df_filtered.columns:
     df_filtered = df_filtered[df_filtered['Supplier'].isin(selected_suppliers)]
-if selected_items:
+if selected_items and 'Item' in df_filtered.columns:
     df_filtered = df_filtered[df_filtered['Item'].isin(selected_items)]
-if selected_months:
+if selected_months and 'Month' in df_filtered.columns:
     df_filtered = df_filtered[df_filtered['Month'].isin(selected_months)]
 
 # --- END NEW FILTER APPLICATION LOGIC ---
