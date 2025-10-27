@@ -27,8 +27,16 @@ def load_data(file_path, sheet_name):
         df = pd.read_excel(file_path, sheet_name=sheet_name, engine='openpyxl')
         return df
     except FileNotFoundError:
-        st.error(f"Error: Excel file not found at path: {file_path}. Please ensure 'sales_data.xlsx' is in the same directory as the script.")
+        # --- IMPROVED ERROR MESSAGE FOR FILE NOT FOUND ---
+        st.error(
+            f"🚨 **File Not Found Error**:\n\n"
+            f"Excel file not found at path: `{file_path}`. "
+            f"Please ensure **'sales_data.xlsx'** is uploaded to the root of your GitHub repository. "
+            f"**Crucial Tip:** Linux servers (Streamlit Cloud) are **case-sensitive**. "
+            f"The file name must match exactly (e.g., not `Sales_data.xlsx` or `sales_data.XLSX`)."
+        )
         return pd.DataFrame()
+        # --- END IMPROVED ERROR MESSAGE ---
     except KeyError:
         # --- IMPROVED ERROR HANDLING FOR SHEET NAME ---
         try:
