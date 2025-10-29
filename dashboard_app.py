@@ -389,6 +389,50 @@ with pie_col2:
     else:
         st.warning("Required columns ('Category', 'Margin') for Category Margin Pie Chart are missing.")
 
+import streamlit as st
+import pandas as pd
+import plotly.express as px
+
+# --- Assume Data Loading Here ---
+# In a real app, this is where you would load your data,
+# e.g., df = pd.read_csv('your_financial_data.csv')
+# For this example, we create dummy data:
+data = {
+    'Month': ['Jan', 'Feb', 'Mar', 'Apr'],
+    'Net_Revenue': [150000, 185000, 162000, 201000]
+}
+df_filtered = pd.DataFrame(data)
+# --------------------------------
+
+# 1. Start your Streamlit page layout
+st.title("Financial Performance Dashboard")
+st.markdown("---") # Adds a divider for cleaner visuals
+
+# 2. YOUR CHART CODE (The Figure Generation)
+# --------------------------------------------------------------------
+my_new_chart_figure = px.bar(
+    df_filtered,
+    x='Month',
+    y='Net_Revenue',
+    title='Net Revenue by Month (New Chart)',
+    # Optional: Customize look for professionalism
+    labels={'Net_Revenue': 'Revenue ($)'},
+    color_discrete_sequence=['#1f77b4'] # Sets a professional blue color
+)
+# --------------------------------------------------------------------
+
+# 3. THE INTEGRATION COMMAND
+st.subheader("Monthly Revenue Visualization")
+st.plotly_chart(my_new_chart_figure, use_container_width=True)
+
+
+# 4. (Optional) Display the underlying data
+st.subheader("Underlying Data Table")
+st.dataframe(df_filtered)
+
+# To run this file, save it (e.g., as 'my_app.py') and run:
+# streamlit run my_app.py
+
 # --- END CHART INTERACTION LOGIC ---
 
 
@@ -404,3 +448,4 @@ st.dataframe(df_filtered)
 # 2. Save this code as 'dashboard_app.py'.
 # 3. Run the application from your command prompt:
 #    streamlit run dashboard_app.py
+
