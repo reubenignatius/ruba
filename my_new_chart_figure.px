@@ -1,0 +1,13 @@
+# 1. Import libraries (st, pandas, px)
+import streamlit as st
+import plotly.express as px
+# ...
+
+# 2. Load/Filter Data (df_filtered must exist here)
+# ...
+
+# 3. GENERATE THE FIGURE OBJECT
+my_new_chart_figure = px.bar(...) 
+
+# 4. DISPLAY THE FIGURE
+st.plotly_chart(my_new_chart_figure)
