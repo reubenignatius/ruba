@@ -2,6 +2,7 @@ import pandas as pd
 import streamlit as st
 import plotly.express as px
 from streamlit_plotly_events import plotly_events # New library for better event handling
+import numpy as np # Added for robust data type handling
 
 # --- Configuration and Data Loading ---
 
@@ -24,19 +25,26 @@ if 'category_click_filter' not in st.session_state:
 def load_data(file_path, sheet_name):
     """Loads data from the Excel file into a pandas DataFrame."""
     try:
+        # Load data, assuming default types
         df = pd.read_excel(file_path, sheet_name=sheet_name, engine='openpyxl')
+        
+        # --- Data Cleaning/Preprocessing Recommendation ---
+        # Ensure Month is treated as a string or datetime for proper charting order
+        if 'Month' in df.columns:
+             df['Month'] = df['Month'].astype(str)
+        # --------------------------------------------------
+        
         return df
     except FileNotFoundError:
         # --- IMPROVED ERROR MESSAGE FOR FILE NOT FOUND ---
         st.error(
             f"🚨 **File Not Found Error**:\n\n"
             f"Excel file not found at path: `{file_path}`. "
-            f"Please ensure **'sales_data.xlsx'** is uploaded to the root of your GitHub repository. "
-            f"**Crucial Tip:** Linux servers (Streamlit Cloud) are **case-sensitive**. "
-            f"The file name must match exactly (e.g., not `Sales_data.xlsx` or `sales_data.XLSX`)."
+            f"Please ensure **'sales_data.xlsx'** is uploaded to the root of your project directory. "
+            f"**Crucial Tip:** Streamlit Cloud is **case-sensitive**. "
+            f"The file name must match exactly."
         )
         return pd.DataFrame()
-        # --- END IMPROVED ERROR MESSAGE ---
     except KeyError:
         # --- IMPROVED ERROR HANDLING FOR SHEET NAME ---
         try:
@@ -49,7 +57,7 @@ def load_data(file_path, sheet_name):
                 f"**Available Sheets:** {available_sheets}"
             )
         except Exception:
-             st.error(f"Error: Sheet name '{sheet_name}' not found. Please check the sheet name.")
+            st.error(f"Error: Sheet name '{sheet_name}' not found. Please check the sheet name.")
         # --- END IMPROVED ERROR HANDLING ---
         return pd.DataFrame()
     except Exception as e:
@@ -88,32 +96,40 @@ df_filtered = df.copy()
 # --- NEW FILTER APPLICATION LOGIC (Explicit Priority) ---
 
 # 1. Handle Region Filter (Chart Click Priority)
-region_options = df['Region'].unique()
-if st.session_state.region_click_filter:
-    selected_regions = st.session_state.region_click_filter
-    st.sidebar.markdown(f"**Region Filter (Chart Override):** `{selected_regions[0]}`")
-    st.sidebar.multiselect('Select Region:', options=region_options, default=selected_regions, disabled=True)
+if 'Region' in df.columns:
+    region_options = df['Region'].unique()
+    if st.session_state.region_click_filter:
+        selected_regions = st.session_state.region_click_filter
+        st.sidebar.markdown(f"**Region Filter (Chart Override):** `{selected_regions[0]}`")
+        # Display the multiselect but disable it since the chart click is active
+        st.sidebar.multiselect('Select Region:', options=region_options, default=selected_regions, disabled=True)
+    else:
+        selected_regions = st.sidebar.multiselect(
+            'Select Region:',
+            options=region_options,
+            default=region_options.tolist()
+        )
 else:
-    selected_regions = st.sidebar.multiselect(
-        'Select Region:',
-        options=region_options,
-        default=region_options.tolist()
-    )
+    selected_regions = []
 
 # 2. Handle Category Filter (Chart Click Priority)
-category_options = df['Category'].unique()
-if st.session_state.category_click_filter:
-    selected_categories = st.session_state.category_click_filter
-    st.sidebar.markdown(f"**Category Filter (Chart Override):** `{selected_categories[0]}`")
-    st.sidebar.multiselect('Select Category:', options=category_options, default=selected_categories, disabled=True)
+if 'Category' in df.columns:
+    category_options = df['Category'].unique()
+    if st.session_state.category_click_filter:
+        selected_categories = st.session_state.category_click_filter
+        st.sidebar.markdown(f"**Category Filter (Chart Override):** `{selected_categories[0]}`")
+        # Display the multiselect but disable it since the chart click is active
+        st.sidebar.multiselect('Select Category:', options=category_options, default=selected_categories, disabled=True)
+    else:
+        selected_categories = st.sidebar.multiselect(
+            'Select Category:',
+            options=category_options,
+            default=category_options.tolist()
+        )
 else:
-    selected_categories = st.sidebar.multiselect(
-        'Select Category:',
-        options=category_options,
-        default=category_options.tolist()
-    )
+    selected_categories = []
     
-# 3. Handle remaining filters using ONLY multiselect
+# 3. Handle remaining filters using ONLY multiselect (Checking for column existence)
 if 'Supplier' in df.columns:
     selected_suppliers = st.sidebar.multiselect(
         'Select Supplier:',
@@ -172,7 +188,7 @@ if 'Margin' in df_filtered.columns:
     total_margin = df_filtered['Margin'].sum()
     col2.metric("Total Margin", f"₹{total_margin:,.2f}")
 
-if 'Sales Price' in df_filtered.columns and 'Sales Qty' in df_filtered.columns:
+if 'Sales Price' in df_filtered.columns and 'Sales Qty' in df_filtered.columns and 'Sales Total' in df_filtered.columns:
     sales_qty_sum = df_filtered['Sales Qty'].sum()
     avg_sales_price = (df_filtered['Sales Total'].sum() / sales_qty_sum) if sales_qty_sum > 0 else 0
     col3.metric("Avg. Sales Price", f"₹{avg_sales_price:.2f}")
@@ -202,6 +218,44 @@ if 'Month' in df_filtered.columns and 'Sales Total' in df_filtered.columns:
     st.plotly_chart(fig_line, use_container_width=True)
 else:
     st.warning("Required columns ('Month', 'Sales Total') for Monthly Sales Trend are missing.")
+
+
+# --- 5.5. INTEGRATED NEW CHART (Net Revenue) ---
+# NOTE: Since the column 'Net_Revenue' may not be in the Excel file, we create a dummy metric for demonstration.
+# Please ensure your actual Excel data or a calculated column contains 'Net_Revenue' for this chart to work correctly.
+
+st.markdown("---")
+st.subheader("Monthly Revenue Visualization (New Chart)")
+
+if 'Month' in df_filtered.columns and ('Net_Revenue' in df_filtered.columns or 'Sales Total' in df_filtered.columns):
+    
+    # Use Net_Revenue if available, otherwise use Sales Total as a proxy
+    revenue_col = 'Net_Revenue' if 'Net_Revenue' in df_filtered.columns else 'Sales Total'
+    
+    # Group by month for the chart
+    revenue_data = df_filtered.groupby('Month')[revenue_col].sum().reset_index()
+
+    # 2. YOUR CHART CODE (The Figure Generation)
+    # --------------------------------------------------------------------
+    my_new_chart_figure = px.bar(
+        revenue_data,
+        x='Month',
+        y=revenue_col,
+        title=f'{revenue_col} by Month',
+        # Optional: Customize look for professionalism
+        labels={revenue_col: 'Amount ($)'},
+        color_discrete_sequence=['#1f77b4'], # Sets a professional blue color
+        template='seaborn'
+    )
+    my_new_chart_figure.update_traces(textposition='outside')
+    # --------------------------------------------------------------------
+
+    # 3. THE INTEGRATION COMMAND
+    st.plotly_chart(my_new_chart_figure, use_container_width=True)
+
+else:
+    st.warning("Cannot generate the Net Revenue chart. Required columns ('Month' and 'Net_Revenue' or 'Sales Total') are missing.")
+# --- END INTEGRATED NEW CHART ---
 
 
 # --- 6. Bar Charts (Distribution & Performance) ---
@@ -301,7 +355,7 @@ st.markdown("---")
 st.subheader("Contribution Analysis (Click a slice to filter all charts!)")
 pie_col1, pie_col2 = st.columns(2)
 
-# --- NEW SECTION 8.5: CHART INTERACTION LOGIC ---
+# --- SECTION 8.5: CHART INTERACTION LOGIC ---
 
 # PIE CHART 1: Region Wise Sales % (Clickable)
 with pie_col1:
@@ -389,50 +443,6 @@ with pie_col2:
     else:
         st.warning("Required columns ('Category', 'Margin') for Category Margin Pie Chart are missing.")
 
-import streamlit as st
-import pandas as pd
-import plotly.express as px
-
-# --- Assume Data Loading Here ---
-# In a real app, this is where you would load your data,
-# e.g., df = pd.read_csv('your_financial_data.csv')
-# For this example, we create dummy data:
-data = {
-    'Month': ['Jan', 'Feb', 'Mar', 'Apr'],
-    'Net_Revenue': [150000, 185000, 162000, 201000]
-}
-df_filtered = pd.DataFrame(data)
-# --------------------------------
-
-# 1. Start your Streamlit page layout
-st.title("Financial Performance Dashboard")
-st.markdown("---") # Adds a divider for cleaner visuals
-
-# 2. YOUR CHART CODE (The Figure Generation)
-# --------------------------------------------------------------------
-my_new_chart_figure = px.bar(
-    df_filtered,
-    x='Month',
-    y='Net_Revenue',
-    title='Net Revenue by Month (New Chart)',
-    # Optional: Customize look for professionalism
-    labels={'Net_Revenue': 'Revenue ($)'},
-    color_discrete_sequence=['#1f77b4'] # Sets a professional blue color
-)
-# --------------------------------------------------------------------
-
-# 3. THE INTEGRATION COMMAND
-st.subheader("Monthly Revenue Visualization")
-st.plotly_chart(my_new_chart_figure, use_container_width=True)
-
-
-# 4. (Optional) Display the underlying data
-st.subheader("Underlying Data Table")
-st.dataframe(df_filtered)
-
-# To run this file, save it (e.g., as 'my_app.py') and run:
-# streamlit run my_app.py
-
 # --- END CHART INTERACTION LOGIC ---
 
 
@@ -442,10 +452,9 @@ st.subheader("Raw Data Preview")
 st.dataframe(df_filtered)
 
 # --- How to Run This Script ---
-# IMPORTANT: This update requires a new library for event handling!
-# 1. Install the new library:
-#    pip install streamlit-plotly-events
+# 1. Ensure you have all libraries installed:
+#    pip install streamlit pandas plotly openpyxl streamlit-plotly-events
 # 2. Save this code as 'dashboard_app.py'.
-# 3. Run the application from your command prompt:
+# 3. Ensure your Excel file 'sales_data.xlsx' is in the same folder.
+# 4. Run the application from your command prompt:
 #    streamlit run dashboard_app.py
-
